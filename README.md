@@ -27,7 +27,7 @@ Launch ./chess (Linux) or chess.exe (Windows). This will start the chess engine 
 
 ## Source code
 
-The "purely" chess engine functions are in src/engine.c (more information on the chess engine in the project 'chess').  
+The "purely" chess engine functions are in src/engine.c (more information in the project 'chess').  
 The WEB server logic is in src/serv.c.  
 You can get an idea of the "chess API" interface between serv.c and engine.c in engine.h.  
 The WEB page layout and the javascript code to manage the interactions with the WEB server are both in index.html. All the graphical work is done, using the html "canvas' framework.  

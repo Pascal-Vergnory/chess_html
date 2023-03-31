@@ -1,0 +1,7 @@
+#! /bin/bash
+
+# To use gdb:
+# gcc src/serv.c src/engine.c -o chess -Wall -Wextra -Wimplicit-fallthrough=0 -Wpedantic -lpthread -O3 -g
+
+gcc src/serv.c src/engine.c -o chess -Wall -Wextra -Wimplicit-fallthrough=0 -Wpedantic -lpthread -O3 -s
+

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chess</title>
+  <style>
+    .btn { position:absolute; height:36px;
+           background-color:#b58863; font-size:16px;  color: white;
+           border:none; border-radius:4px;
+           box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 4px 10px 0 rgba(0,0,0,0.19);
+           cursor:pointer; }
+    .btn:hover { background-color: #f0d9b5; color: black; }
+  </style>
+  <meta name="theme-color" content="#f2ead0">
+</head>
+
+<body onload="draw()" style="background-color:#f2ead0" >
+
+<div id='BoardDiv' style="position:absolute; top:10px; left:10px; z-index:2; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 4px 10px 0 rgba(0,0,0,0.19)">
+<canvas id="BoardCanvas" >
+<img id="pieces" src="Chess_Pieces.svg">
+</canvas> 
+</div>
+
+<div style="position:absolute; top:65px; right:40px" id="turnDiv" >
+  <canvas id="TurnCanvas" style="width:60px; height=60px" ></canvas>
+</div>
+
+<div id="msg" style="position:absolute; top:150px; right:20px; width:70px; font-family:Arial; font-size:18px; visibility:hidden">
+  <p> Play </p>
+</div>
+
+<div style="position:absolute; top:20px; right:0; width:120px; height:300px">
+<button onclick="onNew()"  class="btn" style="top:0px;   width:100px;" >New</button>
+<button onclick="onPlay()" class="btn" style="top:120px; width:100px;" id="playBtn" >Play</button>
+<button onclick="onView()" class="btn" style="top:180px; width:100px;" >View</button>
+<button onclick="onBack()" class="btn" style="top:240px; width:44px;"  ><</button>
+<button onclick="onFwd()"  class="btn" style="top:240px; left:56px; width:44px;" >></button>
+</div>
+
+<script language="javascript">
+
+// Various inits
+const svg_order = "pknbrqPKNBRQ"; // Order of the pieces in the svg file
+var w = 62, m = 18;               // Initial board squares width and board margin
+window.resizeTo(10 + 2*m + 8*w + 140, 20 + 2*m + 8*w);
+var mx = 0, my = 0;               // Mouse position
+var play = 0;                     // Game iteration
+var i0 = -1;                      // Moved piece initial square (-1 = "no move")
+var move = "";                    // The player move (example: "e2e4")
+var side_view = 0                 // board orientation
+
+const boards = Array.from({length:512}).map(()=>''); // Remember the board for each of up to 512 plays
+boards[0] = "rnbqkbnrpppppppp________________________________PPPPPPPPRNBQKBNR_w_KQkq_-_0_1";
+var destp = "________________________________________________________________";
+
+var url = window.location.href;
+if (url.startsWith('file')) url = "http://localhost:2320/";
+
+// For the graphical parts, initialize HTML canvas in 2D mode 
+var boardCanvas = document.getElementById("BoardCanvas");
+boardCanvas.width = 2*m + 8*w;
+boardCanvas.height = 2*m + 8*w;
+
+var turnCanvas = document.getElementById("TurnCanvas");
+turnCanvas.width = w-2;
+turnCanvas.height = w-2;
+
+var boardCtx, turnCtx;
+if (boardCanvas.getContext && turnCanvas.getContext) {
+  boardCtx = boardCanvas.getContext('2d');
+  boardCtx.font = "12px Arial";
+  turnCtx = turnCanvas.getContext('2d');
+  turnCtx.font = "24px Arial";
+}
+
+function area(x, y) {
+  mx = x; my = y;
+  if (mx > 10 + 2*m + 8*w) return -1;
+  var l = Math.floor((my - m - 10)/w);
+  var c = Math.floor((mx - m - 10)/w);
+  if (l < 0 || 7 < l || c < 0 || 7 < c)  return 64; // board border
+  return (side_view) ? 63 - 8*l - c : 8*l + c;
+}
+
+function area_to_lig_col(i) {
+  var l = Math.floor(i/8);
+  var c = i - 8*l;
+  return [l, c];
+}
+
+// Board redraw function
+const draw = () => {
+
+  // Adapt the board size to the window size
+  var canvas_width = window.innerHeight - 24;
+  w = (canvas_width - 2*m) / 8;
+  if (w < 50)  w = 50;
+  if (w > 256) w = 256;
+  boardCanvas.width = 2*m + 8*w;
+  boardCanvas.height = 2*m + 8*w;
+
+  // Draw the upper left part that shows who plays and the game iteration (play+1)
+  turnCtx.fillStyle= '#f2ead0'; // '#f4ecd2'; 
+  turnCtx.fillRect(0, 0, turnCanvas.width, turnCanvas.height);
+  let si = svg_order.indexOf((play & 1) ? "k" : "K");
+  turnCtx.drawImage( document.getElementById("pieces"), 60*si, 0, 60, 60, 0, 0, 60, 60 );
+
+  document.getElementById("playBtn").innerHTML = "Play " + (play + 1);
+
+  // Draw the chess board, with the pieces on it...
+  boardCtx.fillStyle= '#fcf8e0';                          // canvas backgroud color
+  boardCtx.fillRect(0, 0, boardCanvas.width, boardCanvas.height);
+  for (var l = 0; l != 8; l++) {
+    for (var c = 0; c != 8; c++) {
+      var x = m + (side_view ? 7 - c : c)*w;
+      var y = m + (side_view ? 7 - l : l)*w;
+
+      // Draw the square
+      boardCtx.fillStyle = ((l + c) % 2) ? '#b58863' : '#f2ead0';  // square color
+      boardCtx.fillRect( x, y, w, w);
+
+      // Draw the piece on the square (if it's not the piece being moved)
+      var i = 8*l + c;
+      const p = (i == i0) ? "_" : boards[play][i];
+      if (p != "_") {
+        let si = svg_order.indexOf(p);
+        boardCtx.drawImage( document.getElementById("pieces"), 60*si, 0, 60, 60, x, y, w-2, w-2 );
+      }
+
+      // Draw a small circle if it is a possible piece move destination
+      if (i0 >= 0 && destp[i] !== '_') {
+          boardCtx.fillStyle = ((l + c) % 2) ? '#f0d9b5' : '#b58863';  // circle color
+          boardCtx.beginPath();
+          boardCtx.arc( x + w/2, y + w/2, 5, 0, 2 * Math.PI);
+          boardCtx.fill();
+      }
+    }
+    // Draw 1..8 and a..h on the board sides
+    boardCtx.fillStyle= '#857853';  // text color
+    var digit  = String.fromCharCode( side_view ? "1".charCodeAt(0) + l : "8".charCodeAt(0) - l);
+    var letter = String.fromCharCode( side_view ? "h".charCodeAt(0) - l : "a".charCodeAt(0) + l);
+    boardCtx.fillText( digit, 5, m + w/2 + l*w);
+    boardCtx.fillText( digit, m + 8*w + 5, m + w/2 + l*w);
+    boardCtx.fillText( letter, m + w/2 + l*w, 14);
+    boardCtx.fillText( letter, m + w/2 + l*w, 2*m + 8*w - 4);
+  }
+
+  // If the user is moving a piece, draw it under the mouse
+  if (i0 >= 0) {
+    const p = boards[play][i0];
+    let si = svg_order.indexOf(p);
+    boardCtx.drawImage( document.getElementById("pieces"), 60*si, 0, 60, 60, mx - w/2, my - m -w/2, w+6, w+6 );
+  }
+}
+
+// Handle a mouse click on the board (potentially a piece move)
+window.onmousedown = async (e) => {
+  if (e.button != 0) return; // Left button only
+
+  // We must be on the board or its border
+  if ((i = area(e.x, e.y)) < 0) return;
+
+  // Clicking on the board border changes the side's point of view
+  if (i == 64) { side_view = 1 - side_view; draw(); return; }
+
+  // Accept to move a piece from the side to play
+  var p = boards[play][i];
+  if (p == "_" || (play & 1) != (p == p.toLowerCase())) return;
+
+  var [l, c] = area_to_lig_col(i);
+  move = String.fromCharCode( "a".charCodeAt(0) + c)
+       + String.fromCharCode( "1".charCodeAt(0) + 7 - l);
+
+  // Ask the server to give the possible destination squares
+  const response = await fetch( url + 'cmd_dp' + move + '_' + boards[play], { cache: 'no-cache'} );
+  destp = await response.text(); 
+  i0 = i;
+  draw();
+
+  // While the mouse button is down, show the moved piece following the mouse
+  window.onmousemove = (e) => { mx = e.x; my = e.y; draw() };
+}
+
+window.onmouseup = async (e) => {
+  if (e.button != 0 || i0 < 0) return; // Left button only
+
+  window.onmousemove = () => { };
+
+  var i = area(e.x, e.y); 
+  if (i < 0 || 63 < i) return;
+
+  if (i != i0 && destp[i] != '_') {
+    var [l, c] = area_to_lig_col(i);
+    move += String.fromCharCode( "a".charCodeAt(0) + c)
+          + String.fromCharCode( "1".charCodeAt(0) + 7 - l);
+
+    // Ask the server to verify the move and give us back the resulting board
+    const response = await fetch( url + 'cmd_' + move + '_' + boards[play], { cache: 'no-cache'} );
+    const result = await response.text();
+    if (result[65] != boards[play][65]) {
+      boards[++play] = result;
+
+      // Ask the server to play (and give us back the resulting board)
+      onPlay();
+    }
+  }
+  i0 = -1;
+  draw();
+}
+
+// Handle the buttons
+const onNew = () => {
+  boards[0] = "rnbqkbnrpppppppp________________________________PPPPPPPPRNBQKBNR_w_KQkq_-_0_1";
+  for (var i = 1; i < 512; i++) boards[i] = '';
+  play = 0;
+  draw();
+};
+
+const onPlay = async () => {
+  playBtn.style.visibility = 'hidden';
+  document.getElementById("msg").innerHTML = (play + 1) + " ...";
+  msg.style.visibility = 'visible';
+  const response = await fetch( url + 'cmd_play_' + boards[play], { cache: 'no-cache'} );
+  const result = await response.text();
+  if (result[65] != boards[play][65]) boards[++play] = result;
+  msg.style.visibility = 'hidden';
+  playBtn.style.visibility = 'visible';
+  draw();
+}
+
+const onView = () => { side_view = 1 - side_view; draw() }
+const onBack = () => { if (play >   0 && boards[play-1] != '') { play--; draw() } }
+const onFwd  = () => { if (play < 511 && boards[play+1] != '') { play++; draw() } }
+
+// Handle the keyboard
+window.onkeydown = (e) => {
+  if (e.key == "ArrowLeft") onBack();
+  if (e.key == "ArrowRight") onFwd();
+}
+
+// Handle window events
+window.onresize = () => { draw(); }
+
+</script>
+</body> 
+</html>

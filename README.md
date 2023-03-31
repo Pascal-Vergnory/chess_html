@@ -11,7 +11,7 @@ So...
 
 ## Pre-requisites to build
 
-On Linux, gcc must be installed
+On Linux, gcc must be installed.
 On Windows, msys64 and MINGW64 must be installed.
 
 ## Building chess or chess.exe

@@ -11,12 +11,12 @@ So...
 
 ## Pre-requisites to build
 
-On Linux, gcc must be installed.
+On Linux, gcc must be installed.  
 On Windows, msys64 and MINGW64 must be installed.
 
 ## Building chess or chess.exe
 
-On Linux run ./build (no argument needed).
+On Linux run ./build (no argument needed).  
 On Windows run build.bat (no argument needed).
 
 ## Using chess (Linux), or chess.exe (Windows)
@@ -27,10 +27,10 @@ Launch ./chess (Linux) or chess.exe (Windows). This will start the chess engine 
 
 ## Source code
 
-The "purely" chess engine functions are in src/engine.c (more information on the chess engine in the project 'chess')
-The WEB server logic is in src/serv.c.
-You can get an idea of the "chess API" interface between serv.c and engine.c in engine.h.
-The WEB page layout and the javascript code to manage the interactions with the WEB server are both in index.html. All the graphical work is done, using the html "canvas' framework.
+The "purely" chess engine functions are in src/engine.c (more information on the chess engine in the project 'chess').  
+The WEB server logic is in src/serv.c.  
+You can get an idea of the "chess API" interface between serv.c and engine.c in engine.h.  
+The WEB page layout and the javascript code to manage the interactions with the WEB server are both in index.html. All the graphical work is done, using the html "canvas' framework.  
 The chess pieces vectorized drawings are in Chess_Pieces.svg (it's a text file, you can take a look inside!)
 
 That's it! No other dependencies than the basic GCC libraries!

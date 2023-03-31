@@ -16,7 +16,7 @@ On Windows, msys64 and MINGW64 must be installed.
 
 ## Building chess or chess.exe
 
-On Linux run  ./build (no argument needed).
+On Linux run ./build (no argument needed).
 On Windows run build.bat (no argument needed).
 
 ## Using chess (Linux), or chess.exe (Windows)

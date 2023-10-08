@@ -42,10 +42,11 @@
 // Various inits
 const svg_order = "pknbrqPKNBRQ"; // Order of the pieces in the svg file
 var w = 62, m = 18;               // Initial board squares width and board margin
-window.resizeTo(10 + 2*m + 8*w + 140, 20 + 2*m + 8*w);
+window.resizeTo(150 + 2*m + 8*w, 20 + 2*m + 8*w);
 var mx = 0, my = 0;               // Mouse position
 var play = 0;                     // Game iteration
 var i0 = -1;                      // Moved piece initial square (-1 = "no move")
+var ip = -1;                      // Promoting pawn position (-1 = "no promotion")
 var move = "";                    // The player move (example: "e2e4")
 var side_view = 0                 // board orientation
 
@@ -76,15 +77,15 @@ if (boardCanvas.getContext && turnCanvas.getContext) {
 function area(x, y) {
   mx = x; my = y;
   if (mx > 10 + 2*m + 8*w) return -1;
-  var l = Math.floor((my - m - 10)/w);
-  var c = Math.floor((mx - m - 10)/w);
+  let l = Math.floor((my - m - 10)/w);
+  let c = Math.floor((mx - m - 10)/w);
   if (l < 0 || 7 < l || c < 0 || 7 < c)  return 64; // board border
   return (side_view) ? 63 - 8*l - c : 8*l + c;
 }
 
 function area_to_lig_col(i) {
-  var l = Math.floor(i/8);
-  var c = i - 8*l;
+  let l = Math.floor(i/8);
+  let c = i - 8*l;
   return [l, c];
 }
 
@@ -99,9 +100,9 @@ const draw = () => {
   boardCanvas.width = 2*m + 8*w;
   boardCanvas.height = 2*m + 8*w;
 
-  // Draw the upper left part that shows who plays and the game iteration (play+1)
+  // Draw the upper right part that shows who plays and the game iteration (play+1)
   turnCtx.fillStyle= '#f2ead0'; // '#f4ecd2'; 
-  turnCtx.fillRect(0, 0, turnCanvas.width, turnCanvas.height);
+  turnCtx.fillRect(0, 0, 60, 60);
   let si = svg_order.indexOf((play & 1) ? "k" : "K");
   turnCtx.drawImage( document.getElementById("pieces"), 60*si, 0, 60, 60, 0, 0, 60, 60 );
 
@@ -112,8 +113,8 @@ const draw = () => {
   boardCtx.fillRect(0, 0, boardCanvas.width, boardCanvas.height);
   for (var l = 0; l != 8; l++) {
     for (var c = 0; c != 8; c++) {
-      var x = m + (side_view ? 7 - c : c)*w;
-      var y = m + (side_view ? 7 - l : l)*w;
+      let x = m + (side_view ? 7 - c : c)*w;
+      let y = m + (side_view ? 7 - l : l)*w;
 
       // Draw the square
       boardCtx.fillStyle = ((l + c) % 2) ? '#b58863' : '#f2ead0';  // square color
@@ -143,13 +144,32 @@ const draw = () => {
     boardCtx.fillText( digit, m + 8*w + 5, m + w/2 + l*w);
     boardCtx.fillText( letter, m + w/2 + l*w, 14);
     boardCtx.fillText( letter, m + w/2 + l*w, 2*m + 8*w - 4);
+
+    if (ip >= 0) {    // Promotion: show choice between Queen and Knight
+
+      let lp = Math.floor(ip/8);
+      let cp = ip - 8*lp;
+      let up = (side_view == 0 && ip < 32) || (side_view && ip > 32);
+      let x = (side_view ? 7 - cp : cp)*w;
+      let y = (up ? 0 : 6*w);
+
+      boardCtx.fillStyle= '#fcf8e0';                          // canvas backgroud color
+      boardCtx.fillRect(x, y, 2*m + w, 2*m + 2*w);
+      x += m;
+      y += m;
+      boardCtx.fillStyle = '#f2ead0';                          // square color
+      boardCtx.fillRect(x, y, w, 2*w);
+
+      boardCtx.drawImage( document.getElementById("pieces"), 60*(ip > 32 ? 5:11), 0, 60, 60, x, y,     w-2, w-2 );
+      boardCtx.drawImage( document.getElementById("pieces"), 60*(ip > 32 ? 2: 8), 0, 60, 60, x, y + w, w-2, w-2 );
+    }
   }
 
   // If the user is moving a piece, draw it under the mouse
-  if (i0 >= 0) {
+  if (i0 >= 0 && ip < 0) {
     const p = boards[play][i0];
     let si = svg_order.indexOf(p);
-    boardCtx.drawImage( document.getElementById("pieces"), 60*si, 0, 60, 60, mx - w/2, my - m -w/2, w+6, w+6 );
+    boardCtx.drawImage( document.getElementById("pieces"), 60*si, 0, 60, 60, mx - w/2 - 10, my - w/2 - 10, w, w);
   }
 }
 
@@ -158,13 +178,15 @@ window.onmousedown = async (e) => {
   if (e.button != 0) return; // Left button only
 
   // We must be on the board or its border
-  if ((i = area(e.x, e.y)) < 0) return;
+  let i = area(e.x, e.y);
+  if (i < 0) return;
 
   // Clicking on the board border changes the side's point of view
   if (i == 64) { side_view = 1 - side_view; draw(); return; }
+  if (ip >= 0) return;          // Promotion case
 
   // Accept to move a piece from the side to play
-  var p = boards[play][i];
+  let p = boards[play][i];
   if (p == "_" || (play & 1) != (p == p.toLowerCase())) return;
 
   var [l, c] = area_to_lig_col(i);
@@ -182,26 +204,45 @@ window.onmousedown = async (e) => {
 }
 
 window.onmouseup = async (e) => {
-  if (e.button != 0 || i0 < 0) return; // Left button only
+  if (e.button != 0) return; // Left button only
 
   window.onmousemove = () => { };
 
-  var i = area(e.x, e.y); 
-  if (i < 0 || 63 < i) return;
+  let i = area(e.x, e.y); 
+  if (0 <= i && i < 64) {
 
-  if (i != i0 && destp[i] != '_') {
-    var [l, c] = area_to_lig_col(i);
-    move += String.fromCharCode( "a".charCodeAt(0) + c)
-          + String.fromCharCode( "1".charCodeAt(0) + 7 - l);
+    let prom = '';
+    if (ip >= 0) {          // Promotion case
+      if (ip > 32) {
+        if (i == ip - 8) prom = side_view ? "n" : "q";
+        if (i == ip)     prom = side_view ? "q" : "n";
+      }
+      else {
+        if (i == ip)     prom = side_view ? "n" : "q";
+        if (i == ip + 8) prom = side_view ? "q" : "n";
+      }
+    }
+    else if (i0 >= 0 && i != i0 && destp[i] != '_') {
+      let [l, c] = area_to_lig_col(i0);
+      move = String.fromCharCode( "a".charCodeAt(0) + c)
+           + String.fromCharCode( "1".charCodeAt(0) + 7 - l);
+      [l, c] = area_to_lig_col(i);
+      move += String.fromCharCode( "a".charCodeAt(0) + c)
+            + String.fromCharCode( "1".charCodeAt(0) + 7 - l);
+      prom = '_';
+    }
+    if (prom != '') {
+      // Ask the server to verify the move and give us back the resulting board
+      const response = await fetch( url + 'cmd_' + move + prom + boards[play], { cache: 'no-cache'} );
+      const result = await response.text();
+      if (result[65] != boards[play][65]) {
+        boards[++play] = result;
+        ip = -1;
 
-    // Ask the server to verify the move and give us back the resulting board
-    const response = await fetch( url + 'cmd_' + move + '_' + boards[play], { cache: 'no-cache'} );
-    const result = await response.text();
-    if (result[65] != boards[play][65]) {
-      boards[++play] = result;
-
-      // Ask the server to play (and give us back the resulting board)
-      onPlay();
+        // Ask the server to play (and give us back the resulting board)
+        onPlay();
+      }
+      else if (result[64] == "P") ip = i;   // Promotion case
     }
   }
   i0 = -1;

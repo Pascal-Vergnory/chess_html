@@ -130,6 +130,7 @@ void send_str( const char* str ) { fputs( str, stdout ); }
 static void* serve( void* void_client )
 {
     SOCKET* client = void_client;
+    int ret = 0;
     char header[128] = { 0 };
     char buffer[1024] = { 0 };
     char* name  = buffer +  5;  // After "GET /"
@@ -165,11 +166,18 @@ static void* serve( void* void_client )
         }
 
         // Verify the move and apply it if it is legal
-        else try_move_str(move);
+        else ret = try_move_str(move);
+
+        // Handle a move that promotes a pawn
+        if (ret == 2 && move[4]=='_') {
+            user_undo_move();
+            board[64]='P';       // Give a sign to the client that the move promotes a pawn
+        }
+        else board[64]='_';
 
         // Rebuild the full board string
         update_board_string( board );
-        set_FEN_end( board + 64, '_' ); 
+        set_FEN_end( board + 65, '_' ); 
 
 send_header_and_board:
         // Send the HTTP header

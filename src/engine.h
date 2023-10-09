@@ -48,10 +48,10 @@ void  set_piece( char ch, int l, int c);
 char  get_piece( int l, int c);
 void  user_undo_move( void );
 void  user_redo_move( void );
-char* get_move_str( int play);
-void  set_FEN_end( char *ptr, char separator);
 void  set_possible_moves_board( int l, int c);
 char  get_possible_moves_board( int l, int c);
+char* get_move_str( int play);
+void  set_FEN_end( char *ptr, char separator);
 
 void log_info( const char* str );
 void send_str( const char* str );

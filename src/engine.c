@@ -105,6 +105,8 @@ int use_book        = 1;
 int randomize       = 0;
 int level_max_max   = LEVEL_MAX;
 long time_budget_ms = 2000;
+long curr_budget_ms = 0;
+long unused_ms      = 0;
 static int mv50     = 0;
 static char engine_side;
 
@@ -417,6 +419,7 @@ void init_game(char *FEN_string)
 
     game_state     = WAIT_GS;
     time_budget_ms = 2000;
+    unused_ms      = 0;
     total_ms       = 0;
     randomize      = 0;
     level_max_max  = LEVEL_MAX;
@@ -1178,7 +1181,7 @@ static int nega_alpha_beta(int level, int a, int b, int side, move_t *upper_sequ
         // Every 10000 moves, look at elapsed time
         if (++ab_moves > next_ab_moves_time_check) {
             // if time's up, stop search and keep previous lower depth search move
-            if (get_chrono() >= time_budget_ms) return -400000;
+            if (get_chrono() >= curr_budget_ms) return -400000;
             next_ab_moves_time_check = ab_moves + 10000;
         }
 
@@ -1238,6 +1241,7 @@ end_add_to_tt:
 void compute_next_move(void)
 {
     move_t engine_move;
+    long level_ms = 0, elapsed_ms = 0;
 
     engine_side = (play & 1) ? BLACK : WHITE;
 
@@ -1274,13 +1278,13 @@ void compute_next_move(void)
         log_info("not found\n");
     }
 #endif
-    long level_ms = 0, elapsed_ms = 0;
     start_chrono();
 
     // Search deeper and deeper the best move,
     // starting with the previous "best" move to improve prunning
     level_max       = 0;
     engine_move.val = 0;
+    curr_budget_ms  = time_budget_ms + unused_ms;
 
     do {
         best_move[level_max].val = 0;
@@ -1293,7 +1297,7 @@ void compute_next_move(void)
 
         int max = nega_alpha_beta(0, -400000, 400000, engine_side, best_sequence);
         engine_move = best_sequence[0];
-        if (engine_move.val == 0) {
+        if (max == -100000) {
             game_state = PAT_GS;
             return;
         }
@@ -1313,16 +1317,20 @@ void compute_next_move(void)
         if (max > 199800 || max < -199800) break;
 
         // Evaluate if we have time for the next search level
-        if (level_ms * 3 > time_budget_ms - elapsed_ms) break;
+        if (level_ms * 4 > curr_budget_ms - elapsed_ms) break;
     } while (level_max <= LEVEL_MAX);
     total_ms += elapsed_ms;
 
 //play_the_prefered_move:
+    unused_ms += time_budget_ms - elapsed_ms;
+
     try_move(engine_move, engine_side);
     engine_move_str = move_str(engine_move);
 
     log_info_va("Play %d: -> %s\n", play, engine_move_str);
     log_info_va("Table entries created: %d, Deduplications: %d\n", nb_hash, nb_dedup);
+    log_info_va("Think time: %d min %d sec %d ms\n", (int)(elapsed_ms / 60000), (int)((elapsed_ms / 1000) % 60), (int)(elapsed_ms % 1000));
+    log_info_va("Unused time: %d min %d sec %d ms\n", (int)(unused_ms / 60000), (int)((unused_ms / 1000) % 60), (int)(unused_ms % 1000));
     log_info_va("Total think time: %d min %d sec %d ms\n", (int)(total_ms / 60000), (int)((total_ms / 1000) % 60), (int)(total_ms % 1000));
 
     // Return with the opponent side situation
